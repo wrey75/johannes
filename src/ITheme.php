@@ -10,5 +10,10 @@ namespace Johannes;
  *
  */
 interface ITheme {
-	
+	/**
+	 * Initialize the theme.
+	 *
+	 * @param CMSEngine $cms
+	 */
+	public function init( $cms );
 }
