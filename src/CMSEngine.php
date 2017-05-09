@@ -10,7 +10,7 @@ use Johannes\Loader\FSLoader;
  * The CMS engine. This class is in charge of the rendering, the log, the database
  * access and many other stuff related to the CMS.
  * 
- * @author wrey
+ * @author wrey75
  *
  */
 class CMSEngine {
@@ -18,6 +18,7 @@ class CMSEngine {
 	const MENU_ENTRIES = "menus";
 	const CSS_FILE = "css";
 	const JS_FILE = "js";
+	const SITE_CONTACT_EMAIL = "site.contact.email";
 		
 	/**
 	 * The file paths. Used to find the requested objects.
@@ -108,6 +109,7 @@ class CMSEngine {
 		$this->ROOT_DIR = (@$config['dir.root'] ?: $_SERVER['DOCUMENT_ROOT'] . "/cms");
 		$this->THEME_DIR = (@$config['dir.themes'] ?: $this->ROOT_DIR . "/themes");
 		$this->theme = (@$config['theme'] ?: "basic");
+		$this->push(self::SITE_CONTACT_EMAIL, @$_SERVER["SERVER_ADMIN"]);
 	}
 
 	/**
@@ -190,6 +192,34 @@ class CMSEngine {
     	}
     }
     
+    public function getServerName() {
+    	// Protocol
+    	$secure_connection = false;
+    	if(isset($_SERVER['HTTPS'])) {
+		    if ($_SERVER['HTTPS'] == "on") {
+		        $secure_connection = true;
+		    }
+		}
+    	if( $secure_connection ){
+    		$protocol = "https:";
+    		$defaultPort = 443;
+    	}
+    	else {
+    		$protocol = "http:";
+    		$defaultPort = 80;
+    	}
+    	
+    	// Port
+    	$port = $_SERVER['SERVER_PORT'];
+    	$portNumber = "";
+    	if($port && (intval($port) != intval($defaultPort) )){
+    		$portNumber = ":$port";
+    	}
+    	
+    	// Server name
+    	$name = $_SERVER["SERVER_NAME"];
+    	return "$protocol//$name$portNumber";
+    }
     
 	/**
 	 * Initialize the CMS.
@@ -209,6 +239,19 @@ class CMSEngine {
 						self::JS_FILE => [],
 						],
 				'i18n' => [],
+				'system' => [
+						"ie8-compatibility" => function() {
+								return file_get_contents( __DIR__ . "/scripts/ie8-compatibility.html" );
+								},
+						"version" => function() {
+								return $this->getVersion();
+								}
+						],
+				'page' => [
+					'url' => $_SERVER['REQUEST_URI'],
+					'server' => $this->getServerName(),
+					'now' => time(),
+				]
 		];
 		
 // 		$mustacheConf = [
@@ -249,9 +292,21 @@ class CMSEngine {
 	 * Set the HTML title.
 	 * 
 	 * @param string $title the title of the page.
+	 * @deprecated 
 	 */
+	public function setPageTitle( $title ){
+		// if($title) $this->push("page.title", $title);
+		// echo "** "; print_r( $this->model["page"] ); die;
+ 		if( !isset($this->model["title_page_html"]) ){
+ 			$this->push("title_page_html", $title);
+ 			if( !@$this->model['page']['title'] ) $this->push("page.title", $title);
+ 		}
+	}
+	
 	public function setTitle( $title ){
-		$this->push("title", $title);
+		// echo "** "; print_r( $this->model["page"] ); die;
+		if( !@$this->model['page']['title'] ) $this->push("page.title", $title);
+		// echo "** "; print_r( $this->model["page"] ); die;
 		if( !isset($this->model["title_page_html"]) ){
 			$this->push("title_page_html", $title);
 		}
@@ -263,10 +318,13 @@ class CMSEngine {
 	 * 
 	 * @param string $title the title for the &lt;H1%gt; tag.
 	 * @param string $subtitle the subtitle (if exists).
+	 * @deprecated 
 	 */
 	public function setPageHeader( $title, $subtitle = "" ){
 		$this->push("title_page_html", $title);
+		if( !@$this->model['page']['title'] ) $this->push("page.title", $title);
 		$this->push("subtitle_page", $subtitle);
+		// echo "XX "; print_r( $this->model["page"] ); die;
 	}
 	
 	
@@ -399,10 +457,6 @@ class CMSEngine {
 	 */
 	public function run(){
 		$this->model['cms'] = new CMSHelper($this); 
-		$this->model['page'] = [
-				'url' => $_SERVER['REQUEST_URI'],
-				'server' => "http://www.koikonfait.com",
-				];
 		$conf = [
 				'loader' => new FSLoader($this->getThemeDirectory($this->theme), ['ext'=>'.html'] ),
 				'partials_loader' => new FSLoader($this->getThemeDirectory($this->theme) . "/views", ['ext'=>'.html'] ),
@@ -410,8 +464,10 @@ class CMSEngine {
 						'urlencode' => function( $text ){ return urlencode($text); },
 						'br' => function( $text ){ return str_replace("\n", "", std::html($text)); },
 						'stream' => function( $text ){ return str_replace("\n", "", $text); },
+						'trim' => function( $text ){ return trim(str_replace("\n", "", $text)); },
 						'crypt' => [
 								'base64' => function($text) { return base64_encode($text); },
+								'sha1' => function($text) { return sha1($text); },
 								'md5' => function($text) { return md5($text); },
 								'password' => function($text) { return password_hash($text, PASSWORD_DEFAULT); },
 								'hide' => function($text) {
@@ -432,8 +488,28 @@ class CMSEngine {
 										$capitalizedArray[] = std::capitalizeFirst($str);
 									}
 									return implode(" ", $capitalizedArray);
+								},
+						],
+						'link' => function( $input ){
+									if( is_array($input) ){
+										
+										$html = @$input["text"];
+										$attributes = [ 'href' => @$input['url'] ];
+										foreach( ['id', 'class', 'target' ] as $v ){
+											if( @$input[$v] ) $attributes[$v] = @$input[$v];
+										}
+										if( @$input["nofollow"] ){
+											$attributes[] = "nofollow";
+										}
+										$tag = std::tag("a", $attributes) . $html . "</a>";
+										// print_r($attributes); echo "**** " . std::html($tag); die;
+									}
+									else {
+										$tag = std::link($input);
+									}
+									return $tag;
 								}
-						]
+
 				],
 				'escape' => function($text) {
 					// We convert the carriage return into a break in HTML.
@@ -441,11 +517,12 @@ class CMSEngine {
 					$html = std::html($text);
 					return $html;
 				},
-				'strict_callables' => true
+				'strict_callables' => true,
+				'logger' => new \Mustache_Logger_StreamLogger('/var/log/apache2/errors.log'),
+				'pragmas' => [\Mustache_Engine::PRAGMA_FILTERS],
 		];
 		$m = new \Mustache_Engine($conf);
 		
-				
 		$theme = $this->theme;
 		$themeClass = $this->loadTheme( $this->theme );
 		// var_dump($this->model); die;
@@ -553,5 +630,18 @@ class CMSEngine {
 
 	public function isRemoteRendering(){
 		return $this->remote;
+	}
+
+	/**
+	 * Get the current version of the library.
+	 */
+	public function getVersion(){
+		$file = __DIR__ . "/../composer.json";
+		$json = @file_get_contents($file);
+		if( $json ){
+			$composer = json_decode($json, 1);
+			return $composer["version"];
+		}
+		return "undefined";
 	}
 }
