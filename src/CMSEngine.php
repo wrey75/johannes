@@ -6,7 +6,6 @@ use Concerto\std;
 use phpDocumentor\Reflection\Types\This;
 use Johannes\Loader\FSLoader;
 use MongoDB\Exception\Exception;
-use Johannes\Menu\IMenu;
 use Johannes\Menu\Menu;
 
 /**
@@ -38,7 +37,7 @@ class CMSEngine {
 	 * 
 	 * @var string
 	 */
-	protected $templateName;
+	protected $templateName = NULL;
 	
 	protected $remote = FALSE;
 	
@@ -391,6 +390,54 @@ class CMSEngine {
  		return $dir;
  	}
 	
+ 	/**
+ 	 * Load the template. First look in the theme itself. If not use different
+ 	 * possibilities.
+ 	 * 
+ 	 * @throws CMSException if an error occured.
+ 	 * @return string the template itself.
+ 	 */
+ 	protected function loadTemplate(){
+ 		if( $this->templateName ){
+ 			$dir = $this->getThemeDirectory($this->theme);
+ 			$fic = "$dir/" . $this->templateName . ".php";
+ 			if( file_exists($fic) ){
+ 				$class_name = $this->camelCase($this->templateName) . "Template";
+ 				if( preg_match("/^[0-9]/", $class_name) ) $class_name = "_" . $class_name;
+ 				$class_name = "\\" . $class_name;
+ 				include $fic;
+ 				if( !class_exists( $class_name ) ){
+ 					throw new CMSException("Class '$class_name' not loaded for template '$this->templateName'.");
+ 				}
+ 				$tmplObj = new $class_name;
+ 				$tmplObj->init($this);
+ 				$this->push('template', $tmplObj);
+ 			}
+ 			$loader = new FSLoader($dir, ['ext'=>'.html'] );
+ 			// echo $this->templateName . "//"; die;
+ 			$loader->load($this->templateName);
+ 		}
+ 		else {
+ 			$script = $_SERVER['SCRIPT_FILENAME'];
+ 			if( $script ){
+ 				// Type the script with ".page.html" instead of ".php"
+ 				$file = preg_replace('/.php[0-9]*$/', ".page.html", $script);
+ 				if( file_exists($file) ){
+ 					return file_get_contents($file);
+ 				}
+ 				
+ 				$file = $_SERVER['REQUEST_URL'];
+ 				while( strlen($file) > 0 ){
+ 					$path = $_SERVER['DOCUMENT_ROOT'] . $file . ".page.html";
+ 					if( file_exists($path) ){
+ 						return file_get_contents($path);
+ 					}
+ 					$file = preg_replace(":/[^/]*$:", "", $file);
+ 				}
+ 			}
+ 		}
+ 	}
+ 	
 	/**
 	 * Load the theme.
 	 * 
@@ -421,21 +468,7 @@ class CMSEngine {
 			}
 			$this->push('theme.root', substr($dir, $len) );
 		}
-		
-		$fic = "$dir/" . $this->templateName . ".php";
-		if( file_exists($fic) ){
-			$class_name = $this->camelCase($this->templateName) . "Template";
-			if( preg_match("/^[0-9]/", $class_name) ) $class_name = "_" . $class_name;
-			$class_name = "\\" . $class_name;
-			include $fic;
-			if( !class_exists( $class_name ) ){
-				throw new CMSException("Class '$class_name' not loaded for template '$this->templateName'.");
-			}
-			$tmplObj = new $class_name;
-			$tmplObj->init($this);
-			$this->push('template', $tmplObj);
-		}
-		
+	
 		return $themeObj;
 	}
 	
@@ -498,7 +531,7 @@ class CMSEngine {
 	public function run(){
 		$this->model['cms'] = new CMSHelper($this); 
 		$conf = [
-				'loader' => new FSLoader($this->getThemeDirectory($this->theme), ['ext'=>'.html'] ),
+				/* 'loader' => new FSLoader($this->getThemeDirectory($this->theme), ['ext'=>'.html'] ), */
 				'partials_loader' => new FSLoader($this->getThemeDirectory($this->theme) . "/views", ['ext'=>'.html'] ),
 				'helpers' => [
 						'urlencode' => function( $text ){ return urlencode($text); },
@@ -565,7 +598,8 @@ class CMSEngine {
 		
 		$theme = $this->theme;
 		$themeClass = $this->loadTheme( $this->theme );
-		echo $m->render($this->templateName, $this->model);
+		$templateText = $this->loadTemplate();
+		echo $m->render($templateText, $this->model);
 	}
 	
 	/**
