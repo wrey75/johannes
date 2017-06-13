@@ -2,23 +2,26 @@
 
 namespace Johannes\Menu;
 
+use Concerto\std;
+
 /**
  * An entry in the menu. Can be basically anything
  * (an item or a submenu).
  *
  */
-abstract class MenuEntry {
-	const MENU_SEPARATOR = "separator";
-	const MENU_ITEM = "item";
-	const MENU_MENU = "menu";
+abstract class MenuEntry implements \JsonSerializable {
+	const SEPARATOR = "separator";
+	const ITEM = "item";
+	const MENU = "menu";
 
 	protected $type = NULL;
 	protected $id = NULL;
-	protected $text = "";
+	protected $plainText = "";
 	protected $url = NULL;
 	protected $entries = [];
 	protected $enabled;
 	protected $class;
+	protected $icon = null;
 
 	public function __construct($type, $text = NULL){
 		if( !$text ){
@@ -26,7 +29,7 @@ abstract class MenuEntry {
 			$this->id = uniqid();
 			$text = "<entry " . $this->id . ">";
 		}
-		$this->text = $text;
+		$this->plainText = $text;
 		$this->enabled = TRUE;
 		$this->type = $type;
 	}
@@ -38,4 +41,57 @@ abstract class MenuEntry {
 	public function isEnabled() {
 		return $this->enabled;
 	}
+	
+	/**
+	 * Return TRUE if the item is a sub-menu.
+	 */
+	public function isMenu(){
+		return $this->type == self::MENU;
+	}
+	
+	/**
+	 * The text to diplay (as UT-8 text).
+	 * 
+	 * @return string the text to display
+	 */
+	public function getText(){
+		return $this->plainText;
+	}
+
+	public function getHtmlText(){
+		return std::html($this->plainText);
+	}
+	
+	/**
+	 * Get the URL for the entry (if exists)
+	 * 
+	 * @return string the URL or NULL if not an item.
+	 */
+	public function getUrl(){
+		return $this->url;
+	}
+	
+	/**
+	 * Get the type of the menu (SEPARATOR, MENU, ITEM).
+	 * 
+	 * @return string the menu entry type
+	 */
+	public function getType(){
+		return $this->type;
+	}
+
+	/**
+	 * Returns the icon.
+	 * 
+	 * @return string
+	 */
+	public function getIcon(){
+		return $this->icon;
+	}
+	
+	
+	public function jsonSerialize() {
+		return get_object_vars($this);
+	}
+	
 }

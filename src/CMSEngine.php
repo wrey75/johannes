@@ -5,6 +5,9 @@ namespace Johannes;
 use Concerto\std;
 use phpDocumentor\Reflection\Types\This;
 use Johannes\Loader\FSLoader;
+use MongoDB\Exception\Exception;
+use Johannes\Menu\IMenu;
+use Johannes\Menu\Menu;
 
 /**
  * The CMS engine. This class is in charge of the rendering, the log, the database
@@ -125,6 +128,17 @@ class CMSEngine {
 		$this->theme = $theme;
 	}
 		
+	public function get($key){
+		$keys = explode('.', $key);
+		$array = $this->model;
+		foreach($keys as $k) {
+			$array = @$array[$k];
+			if( !$array ) return NULL;
+			// echo "$k => "; var_dump($array); echo " <br>\n";
+		}
+		return $array;
+	}
+	
     /**
      * Add an entry to the model.
      *
@@ -247,6 +261,8 @@ class CMSEngine {
 								return $this->getVersion();
 								}
 						],
+				'theme' => [
+						],
 				'page' => [
 					'url' => $_SERVER['REQUEST_URI'],
 					'server' => $this->getServerName(),
@@ -270,6 +286,9 @@ class CMSEngine {
 	 */
 	public function useTemplate( $template )
 	{
+		if( $template == 'index' ){
+			throw new \Exception("A template CAN NOT be named 'index'.");
+		}
 		$this->templateName = $template;
 	}
 	
@@ -303,10 +322,15 @@ class CMSEngine {
  		}
 	}
 	
+	/**
+	 * Set the page title
+	 * 
+	 * @param string $title the title of the page.
+	 */
 	public function setTitle( $title ){
-		// echo "** "; print_r( $this->model["page"] ); die;
 		if( !@$this->model['page']['title'] ) $this->push("page.title", $title);
-		// echo "** "; print_r( $this->model["page"] ); die;
+		
+		// Legacy (to remove)
 		if( !isset($this->model["title_page_html"]) ){
 			$this->push("title_page_html", $title);
 		}
@@ -374,9 +398,8 @@ class CMSEngine {
 	 */
 	protected function loadTheme( $theme ){
 		$dir = $this->getThemeDirectory($theme);
-		
 		include "$dir/index.php";
-		
+
 		$class_name = "\\" . std::capitalizeFirst($theme) . "Theme";
 		if( !class_exists( $class_name ) ){
 			throw new CMSException("Class '$class_name' not loaded.");
@@ -388,14 +411,23 @@ class CMSEngine {
 			throw new CMSException("Class '$class_name' does NOT implement " . ITheme::class);
 		}
 		$themeObj->init($this);
-		$this->push('theme', $themeObj);
-
+		$this->push('theme.instance', $themeObj);
+		
+		if( !@$this->model['theme']['root'] ){
+			$dir = $this->THEME_DIR . "/" . $theme;
+			$len = strlen($_SERVER['DOCUMENT_ROOT']);
+			if( strcmp(substr($dir, 0, $len), $_SERVER['DOCUMENT_ROOT']) != 0){
+				throw new CMSException("The theme directory MUST BE in the visible part of your website (or give a theme.root).");
+			}
+			$this->push('theme.root', substr($dir, $len) );
+		}
+		
 		$fic = "$dir/" . $this->templateName . ".php";
 		if( file_exists($fic) ){
-			include "$fic";
-			$class_name = std::capitalizeFirst($this->templateName) . "Template";
+			$class_name = $this->camelCase($this->templateName) . "Template";
 			if( preg_match("/^[0-9]/", $class_name) ) $class_name = "_" . $class_name;
 			$class_name = "\\" . $class_name;
+			include $fic;
 			if( !class_exists( $class_name ) ){
 				throw new CMSException("Class '$class_name' not loaded for template '$this->templateName'.");
 			}
@@ -405,6 +437,14 @@ class CMSEngine {
 		}
 		
 		return $themeObj;
+	}
+	
+	public static function camelCase($value){
+		while( ($pos = strpos($value, '-')) ){
+			$value = substr($value, 0, $pos) . std::capitalizeFirst(substr($value, $pos+1)); 
+			// var_dump($value); echo "<br>\n";
+		}
+		return std::capitalizeFirst($value);
 	}
 	
 	/**
@@ -525,7 +565,6 @@ class CMSEngine {
 		
 		$theme = $this->theme;
 		$themeClass = $this->loadTheme( $this->theme );
-		// var_dump($this->model); die;
 		echo $m->render($this->templateName, $this->model);
 	}
 	
@@ -580,7 +619,17 @@ class CMSEngine {
 		return $this->model['menu'][$name];
 	}
 
+	/**
+	 * Set a menu
+	 * 
+	 * @param string $name the name of the menu
+	 * @param Menu $menu the menu itself
 
+	 */
+	public function setMenu( $name, $menu ){
+		$this->model['menu'][$name] = $menu;
+	}
+	
 	
 	/**
 	 * Add JAVASCRIPT code at the bottom of the page.

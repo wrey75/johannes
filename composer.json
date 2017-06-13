@@ -1,6 +1,6 @@
 {
     "name": "wrey75/johannes",
-    "version": "0.10.1",
+    "version": "0.11.0",
     "description": "Johannes CMS. Based on Mustache templating to ensure fast and easy programming.",
     "authors": [
         {

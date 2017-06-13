@@ -10,6 +10,7 @@ namespace Johannes;
  *
  */
 interface ITheme {
+	
 	/**
 	 * Initialize the theme.
 	 *

@@ -2,13 +2,13 @@
 
 namespace Johannes\Menu;
 
-class Menu implements JsonSerialize {
+class Menu extends MenuEntry {
 	
 	public $entries;
 	
-	public function __construct( ){
-		$this->text = $text;
-		$this->entries = $entries;
+	public function __construct( $text ){
+		parent::__construct(self::MENU, $text);
+		$this->entries = [];
 	}
 
 	/**
@@ -18,23 +18,30 @@ class Menu implements JsonSerialize {
 	 * @param Menu $submenu a sub menu.
 	 *
 	 */	
-	public function addSubMenu( $text, $submenu, $options = [] ){
-		if( !is_array($submenu) ){
-			$submenu = $submenu->jsonSerialize();
-		}
-		$submenu['text'] = $text;
-		$submenu['type'] = Menu::class;
-		$submenu['opts'] = $options;
-		$this->entries[] = $submenu;
+	public function addMenuEntry( $entry ){
+		$this->entries[] = $entry;
+		return $this;
 	}
 
-	public function addMenuItem( $text, $url, $options = [] ){
-		$submenu = [];
-		$this->entries[] = $submenu;
+	/**
+	 * Add an item. This is a hortcut to add simple item entries.
+	 * 
+	 * @param string $url the URL.
+	 * @param string $text the plain text
+	 * @return \Johannes\Menu\Menu returns the menu itself to chain.
+	 */
+	public function addItem( $url, $text){
+		$this->entries[] = new MenuItem($url, $text);
+		return $this;
 	}
 	
-	public function jsonSerialize() {
-		return $entries;
+	/**
+	 * Get the items of this menu.
+	 * 
+	 * @return array[MenuEntry] an array of menu entries.
+	 */
+	public function items(){
+		return $this->entries;
 	}
-	
+
 }

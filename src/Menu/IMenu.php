@@ -1,7 +1,7 @@
 <?php
 
-namespace Johannes\Menu;
+// namespace Johannes\Menu;
 
-interface IMenu extends \JsonSerializable {
+// interface IMenu extends \JsonSerializable {
 	
-}
+// }
