@@ -398,6 +398,7 @@ class CMSEngine {
  	 * @return string the template itself.
  	 */
  	protected function loadTemplate(){
+ 		
  		if( $this->templateName ){
  			$dir = $this->getThemeDirectory($this->theme);
  			$fic = "$dir/" . $this->templateName . ".php";
@@ -414,8 +415,7 @@ class CMSEngine {
  				$this->push('template', $tmplObj);
  			}
  			$loader = new FSLoader($dir, ['ext'=>'.html'] );
- 			// echo $this->templateName . "//"; die;
- 			$loader->load($this->templateName);
+ 			return $loader->load($this->templateName);
  		}
  		else {
  			$script = $_SERVER['SCRIPT_FILENAME'];
