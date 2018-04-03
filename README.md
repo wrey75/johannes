@@ -1,4 +1,10 @@
+
 # johannes
+
+> THIS PACKAGE IS NOW ABANDONNED. A REPLACEMENT HAS BEEN MADE SUCCESSFULLY BUT
+> NOT YET PACKAGED. THE NEW SYSTEM ALLOWS JSON GENERATION AND SOME OTHER FEATURES
+> LIKE WIDGETS AND PLUG-INS. FOR THE MOMENT, THIS NEW PACKAGE NOT YET NAMES IS
+> IN PRODUCTION ON MY WEBSITE BUT I HAD NO TIME TO CREATE A SUITABLE PACKAGE.
 
 *johannes* is a new CMS based on some ideas provided by Wordpress. But quite different. Written in PHP but
 it is conceived to be agnostic and mustache-centric. It means that the system is driven by templates
